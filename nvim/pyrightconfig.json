@@ -1,0 +1,11 @@
+{
+    "typeCheckingMode": "off",
+    "stubPath": "/home/gustav/.stubs/out",
+    "exclude": ["*/migrations/*"],
+    "pythonVersion": "3.10",
+    "reportMissingImports": true,
+    "reportMissingTypeStubs": true,
+    "venvPath": ".",
+    "venv": "venv",
+    "typeCheckingMode": "off"
+}
