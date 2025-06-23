@@ -4,7 +4,14 @@ local wezterm = require("wezterm")
 -- This will hold the configuration.
 local config = wezterm.config_builder()
 
-config.font = wezterm.font("JetBrains Mono", { weight = "Bold", italic = true })
+-- config.font = wezterm.font("JetBrains Mono", { weight = "Bold", italic = true })
+
+font = wezterm.font_with_fallback({
+	"WenQuanYi Micro Hei",
+	"Source Han Sans SC",
+	"Noto Sans CJK SC",
+})
+
 config.hyperlink_rules = wezterm.default_hyperlink_rules()
 table.insert(config.hyperlink_rules, {
 	regex = [[\b[tt](\d+)\b]],
