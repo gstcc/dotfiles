@@ -92,6 +92,8 @@ config.keys = {
 
 config.enable_kitty_graphics = true
 config.term = "xterm-256color"
+config.window_decorations = "NONE"
+config.enable_tab_bar = false
 
 -- and finally, return the configuration to wezterm
 return config
