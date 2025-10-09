@@ -1,99 +1,259 @@
--- Pull in the wezterm API
-local wezterm = require("wezterm")
+local w = require("wezterm")
+local act = w.action
 
-function update_overrides_if_changed(window, new_config)
-	local overrides = window:get_config_overrides() or {}
-	local diff = false
-	for k, v in pairs(new_config) do
-		if overrides[k] ~= v then
-			diff = true
-			overrides[k] = v
-		end
-	end
-	if diff then
-		window:set_config_overrides(overrides)
-	end
+local function is_vim(pane)
+	-- This is set by the plugin, and unset on ExitPre in Neovim
+	return pane:get_user_vars().IS_NVIM == "true"
 end
 
--- Hide window decoration when full screen and only one tab.
-wezterm.on("window-resized", function(window, pane)
-	local new_config
-	if window:get_dimensions().is_full_screen then
-		new_config = {
-			hide_tab_bar_if_only_one_tab = true,
-			window_decorations = "RESIZE",
-			use_fancy_tab_bar = false,
-		}
-	else
-		new_config = {
-			hide_tab_bar_if_only_one_tab = false,
-			window_decorations = "INTEGRATED_BUTTONS|RESIZE",
-			use_fancy_tab_bar = true,
-		}
-	end
-	update_overrides_if_changed(window, new_config)
-end)
+local config = {}
+if w.config_builder then
+	config = w.config_builder()
+end
 
--- This will hold the configuration.
-local config = wezterm.config_builder()
+config.term = "wezterm"
+config.front_end = "WebGpu"
 
--- config.font = wezterm.font("JetBrains Mono", { weight = "Bold", italic = true })
+-- Appearance
 
-font = wezterm.font_with_fallback({
-	"IBM Plex Mono",
-	"Noto Sans SC",
-	"WenQuanYi Micro Hei",
-	"Source Han Sans SC",
-	"Noto Sans CJK SC",
-})
+-- Color scheme
+local kanagawa = {
+	foreground = "#dcd7ba",
+	background = "#1b1b23",
 
-config.warn_about_missing_glyphs = false
+	cursor_bg = "#9CABCA",
+	cursor_fg = "#252535",
+	cursor_border = "#c8c093",
 
-config.hyperlink_rules = wezterm.default_hyperlink_rules()
-table.insert(config.hyperlink_rules, {
-	regex = [[\b[tt](\d+)\b]],
-	format = "https://example.com/tasks/?t=$1",
-	highlight = 1,
-})
+	selection_fg = "#c8c093",
+	selection_bg = "#2d4f67",
 
--- make username/project paths clickable. this implies paths like the following are for github.
--- ( "nvim-treesitter/nvim-treesitter" | wbthomason/packer.nvim | wezterm/wezterm | "wezterm/wezterm.git" )
--- as long as a full url hyperlink regex exists above this it should not match a full url to
--- github or gitlab / bitbucket (i.e. https://gitlab.com/user/project.git is still a whole clickable url)
-table.insert(config.hyperlink_rules, {
-	regex = [[["]?([\w\d]{1}[-\w\d]+)(/){1}([-\w\d\.]+)["]?]],
-	format = "https://www.github.com/$1/$3",
-	highlight = 1,
-})
+	scrollbar_thumb = "#16161d",
+	split = "#16161d",
 
--- This is where you actually apply your config choices
+	ansi = { "#090618", "#c34043", "#98BB6C", "#c0a36e", "#7e9cd8", "#957fb8", "#6a9589", "#c8c093" },
+	brights = { "#727169", "#e82424", "#98bb6c", "#e6c384", "#7fb4ca", "#938aa9", "#7aa89f", "#dcd7ba" },
+	indexed = { [16] = "#ffa066", [17] = "#ff5d62" },
+}
+local palenightfall = {
+	foreground = "#959DCB",
+	background = "#252837",
 
--- For example, changing the color scheme:
-config.color_scheme = "Catppuccin Mocha"
-config.font_size = 13
-config.line_height = 1.2
-config.cell_width = 0.9
+	cursor_bg = "#82AAff",
+	cursor_fg = "#252535",
+	cursor_border = "#c8c093",
 
-local action = wezterm.action
-config.keys = {
-	{
-		key = "n",
-		mods = "SHIFT|CTRL",
-		action = wezterm.action.ToggleFullScreen,
+	selection_fg = "#292D3E",
+	selection_bg = "#959DCB",
+
+	scrollbar_thumb = "#16161d",
+	split = "#4e5579",
+
+	ansi = { "#252837", "#F07178", "#C3E88D", "#FFCB6B", "#82AAFF", "#C792EA", "#89DDFF", "#7982B4" },
+	brights = { "#4e5579", "#FF8B92", "#DDFFA7", "#FFE585", "#9CC4FF", "#E1ACFF", "#A3F7FF", "#FFFFFF" },
+}
+config.color_schemes = {
+	["My Kanagawa"] = kanagawa,
+	["Palenightfall"] = palenightfall,
+}
+config.color_scheme = "My Kanagawa"
+
+config.font = w.font("JetBrains Mono", { weight = "Medium" })
+config.font_size = 16
+config.line_height = 1.55
+config.strikethrough_position = "0.5cell"
+
+config.hide_tab_bar_if_only_one_tab = true
+
+config.window_decorations = "RESIZE"
+config.use_fancy_tab_bar = false
+
+config.max_fps = 120
+
+config.colors = {
+	tab_bar = {
+		background = kanagawa.background,
+
+		active_tab = {
+			bg_color = kanagawa.ansi[1],
+			fg_color = kanagawa.brights[5],
+		},
+
+		inactive_tab = {
+			bg_color = kanagawa.background,
+			fg_color = kanagawa.brights[8],
+		},
+
+		inactive_tab_hover = {
+			bg_color = "#16161D",
+			fg_color = kanagawa.ansi[8],
+		},
+
+		new_tab = {
+			bg_color = kanagawa.background,
+			fg_color = kanagawa.brights[8],
+		},
+
+		new_tab_hover = {
+			bg_color = "#16161D",
+			fg_color = kanagawa.ansi[8],
+		},
 	},
-	-- Split vertically (left/right)
-	{ key = "|", mods = "CTRL|SHIFT", action = wezterm.action.SplitVertical({ domain = "CurrentPaneDomain" }) },
-
-	-- Split horizontally (top/bottom)
-	{ key = "_", mods = "CTRL|SHIFT", action = wezterm.action.SplitHorizontal({ domain = "CurrentPaneDomain" }) },
-	{ key = "LeftArrow", mods = "SHIFT|ALT", action = action.MoveTabRelative(-1) },
-	{ key = "RightArrow", mods = "SHIFT|ALT", action = action.MoveTabRelative(1) },
 }
 
-config.enable_kitty_graphics = true
-config.term = "xterm-256color"
-config.window_decorations = "NONE"
-config.enable_tab_bar = false
+config.inactive_pane_hsb = {
+	brightness = 0.7,
+	saturation = 0.8,
+}
 
--- and finally, return the configuration to wezterm
+config.window_background_opacity = 1.0
+config.text_background_opacity = 1.0
+config.macos_window_background_blur = 25
+
+-- Keyboard shortcuts
+
+local direction_keys = {
+	Left = "h",
+	Down = "j",
+	Up = "k",
+	Right = "l",
+	-- Reverse lookup
+	h = "Left",
+	j = "Down",
+	k = "Up",
+	l = "Right",
+}
+
+local function split_nav(resize_or_move, key)
+	return {
+		key = key,
+		mods = resize_or_move == "resize" and "META" or "CTRL",
+		action = w.action_callback(function(win, pane)
+			if is_vim(pane) then
+				-- Pass the keys through to nvim
+				win:perform_action({
+					SendKey = { key = key, mods = resize_or_move == "resize" and "META" or "CTRL" },
+				}, pane)
+			else
+				if resize_or_move == "resize" then
+					win:perform_action({ AdjustPaneSize = { direction_keys[key], 3 } }, pane)
+				else
+					win:perform_action({ ActivatePaneDirection = direction_keys[key] }, pane)
+				end
+			end
+		end),
+	}
+end
+
+config.disable_default_key_bindings = true
+config.keys = {
+	{ key = "q", mods = "CTRL", action = act.QuitApplication },
+	{ key = "r", mods = "CTRL|SHIFT", action = act.ReloadConfiguration },
+	{ key = "l", mods = "CTRL", action = act.ShowDebugOverlay },
+
+	{ key = "c", mods = "CTRL|SHIFT", action = act.CopyTo("Clipboard") },
+	{ key = "v", mods = "CTRL|SHIFT", action = act.PasteFrom("Clipboard") },
+	{ key = "n", mods = "CTRL|SHIFT", action = act.SpawnWindow },
+	{ key = "-", mods = "CTRL", action = act.DecreaseFontSize },
+	{ key = "=", mods = "CTRL", action = act.IncreaseFontSize },
+	{ key = "0", mods = "CTRL", action = act.ResetFontSize },
+
+	{ key = "w", mods = "CTRL|SHIFT", action = act.CloseCurrentTab({ confirm = true }) },
+	{ key = "q", mods = "CTRL|SHIFT", action = act.CloseCurrentPane({ confirm = true }) },
+	{ key = "1", mods = "CTRL", action = act.ActivateTab(0) },
+	{ key = "2", mods = "CTRL", action = act.ActivateTab(1) },
+	{ key = "3", mods = "CTRL", action = act.ActivateTab(2) },
+	{ key = "4", mods = "CTRL", action = act.ActivateTab(3) },
+	{ key = "5", mods = "CTRL", action = act.ActivateTab(4) },
+	{ key = "6", mods = "CTRL", action = act.ActivateTab(5) },
+	{ key = "7", mods = "CTRL", action = act.ActivateTab(6) },
+	{ key = "8", mods = "CTRL", action = act.ActivateTab(7) },
+	{ key = "9", mods = "CTRL", action = act.ActivateTab(-1) },
+
+	{ key = "a", mods = "CTRL", action = act.SplitHorizontal },
+	{ key = "s", mods = "CTRL", action = act.SplitVertical },
+	{ key = "f", mods = "CTRL", action = act.TogglePaneZoomState },
+	{ key = "r", mods = "CTRL", action = act.SendKey({ key = "r", mods = "CTRL" }) },
+	{ key = "[", mods = "CTRL", action = act.ActivateTabRelative(-1) },
+	{ key = "]", mods = "CTRL", action = act.ActivateTabRelative(1) },
+	{ key = "Tab", mods = "CTRL|SHIFT", action = act.ActivateTabRelative(-1) },
+	{ key = "Tab", mods = "CTRL", action = act.ActivateTabRelative(1) },
+
+	{ key = "u", mods = "CTRL", action = act.ScrollByPage(-0.5) },
+	{ key = "d", mods = "CTRL", action = act.ScrollByPage(0.5) },
+
+	{ key = "h", mods = "CTRL|SHIFT", action = act.AdjustPaneSize({ "Left", 1 }) },
+	{ key = "l", mods = "CTRL|SHIFT", action = act.AdjustPaneSize({ "Right", 1 }) },
+	{ key = "k", mods = "CTRL|SHIFT", action = act.AdjustPaneSize({ "Up", 1 }) },
+	{ key = "j", mods = "CTRL|SHIFT", action = act.AdjustPaneSize({ "Down", 1 }) },
+
+	{ key = "p", mods = "CTRL", action = act.ScrollToPrompt(-1) },
+	{ key = "n", mods = "CTRL", action = act.ScrollToPrompt(1) },
+
+	{ key = "x", mods = "CTRL", action = act.ActivateCopyMode },
+
+	{
+		key = "g",
+		mods = "CTRL",
+		action = w.action_callback(function(win, pane)
+			win:perform_action(
+				act.SplitHorizontal({
+					args = { "zsh", "-ic", "lazygit" },
+				}),
+				pane
+			)
+			win:perform_action(act.SetPaneZoomState(true), pane)
+		end),
+	},
+
+	{
+		key = "t",
+		mods = "CTRL",
+		action = w.action.SpawnCommandInNewTab({
+			args = { "zsh", "-i" },
+			set_environment_variables = {
+				OPEN_PROJECT = "1",
+			},
+		}),
+	},
+
+	-- Open URLs with cmd+o
+	{
+		key = "o",
+		mods = "CTRL|SHIFT",
+		action = act.QuickSelectArgs({
+			label = "open url",
+			patterns = { "https?://[^\\s)]+" },
+			action = w.action_callback(function(window, pane)
+				local url = window:get_selection_text_for_pane(pane)
+				w.open_with(url)
+			end),
+		}),
+	},
+
+	split_nav("move", "h"),
+	split_nav("move", "j"),
+	split_nav("move", "k"),
+	split_nav("move", "l"),
+	-- resize panes
+	split_nav("resize", "h"),
+	split_nav("resize", "j"),
+	split_nav("resize", "k"),
+	split_nav("resize", "l"),
+}
+
+config.mouse_bindings = {
+	{
+		event = { Up = { streak = 1, button = "Left" } },
+		mods = "SHIFT",
+		action = w.action.OpenLinkAtMouseCursor,
+	},
+}
+
+--- Behaviour
+
+config.scrollback_lines = 10000
+
+config.adjust_window_size_when_changing_font_size = false
+
 return config
