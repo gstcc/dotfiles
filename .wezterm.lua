@@ -1,128 +1,55 @@
 local w = require("wezterm")
 local act = w.action
 
+-- Robust check for Neovim/Vim
 local function is_vim(pane)
-	-- This is set by the plugin, and unset on ExitPre in Neovim
-	return pane:get_user_vars().IS_NVIM == "true"
+	local vars = pane:get_user_vars()
+	if vars and vars.IS_NVIM == "true" then
+		return true
+	end
+	local process = pane:get_foreground_process_name()
+	if process and process:find("n?vim") then
+		return true
+	end
+	return false
 end
 
-local config = {}
-if w.config_builder then
-	config = w.config_builder()
-end
+local config = w.config_builder()
 
 config.term = "wezterm"
 config.front_end = "WebGpu"
-
--- Appearance
-
--- Color scheme
+-- --- APPEARANCE ---
 local kanagawa = {
 	foreground = "#dcd7ba",
 	background = "#1b1b23",
-
 	cursor_bg = "#9CABCA",
 	cursor_fg = "#252535",
 	cursor_border = "#c8c093",
-
 	selection_fg = "#c8c093",
 	selection_bg = "#2d4f67",
-
-	scrollbar_thumb = "#16161d",
-	split = "#16161d",
-
 	ansi = { "#090618", "#c34043", "#98BB6C", "#c0a36e", "#7e9cd8", "#957fb8", "#6a9589", "#c8c093" },
 	brights = { "#727169", "#e82424", "#98bb6c", "#e6c384", "#7fb4ca", "#938aa9", "#7aa89f", "#dcd7ba" },
-	indexed = { [16] = "#ffa066", [17] = "#ff5d62" },
 }
-local palenightfall = {
-	foreground = "#959DCB",
-	background = "#252837",
 
-	cursor_bg = "#82AAff",
-	cursor_fg = "#252535",
-	cursor_border = "#c8c093",
-
-	selection_fg = "#292D3E",
-	selection_bg = "#959DCB",
-
-	scrollbar_thumb = "#16161d",
-	split = "#4e5579",
-
-	ansi = { "#252837", "#F07178", "#C3E88D", "#FFCB6B", "#82AAFF", "#C792EA", "#89DDFF", "#7982B4" },
-	brights = { "#4e5579", "#FF8B92", "#DDFFA7", "#FFE585", "#9CC4FF", "#E1ACFF", "#A3F7FF", "#FFFFFF" },
-}
-config.color_schemes = {
-	["My Kanagawa"] = kanagawa,
-	["Palenightfall"] = palenightfall,
-}
+config.color_schemes = { ["My Kanagawa"] = kanagawa }
 config.color_scheme = "My Kanagawa"
-
 config.font = w.font("JetBrains Mono", { weight = "Medium" })
 config.font_size = 16
 config.line_height = 1.55
-config.strikethrough_position = "0.5cell"
-
 config.hide_tab_bar_if_only_one_tab = true
-
-config.window_decorations = "RESIZE"
 config.use_fancy_tab_bar = false
-
-config.max_fps = 120
+config.window_decorations = "RESIZE"
 
 config.colors = {
 	tab_bar = {
 		background = kanagawa.background,
-
-		active_tab = {
-			bg_color = kanagawa.ansi[1],
-			fg_color = kanagawa.brights[5],
-		},
-
-		inactive_tab = {
-			bg_color = kanagawa.background,
-			fg_color = kanagawa.brights[8],
-		},
-
-		inactive_tab_hover = {
-			bg_color = "#16161D",
-			fg_color = kanagawa.ansi[8],
-		},
-
-		new_tab = {
-			bg_color = kanagawa.background,
-			fg_color = kanagawa.brights[8],
-		},
-
-		new_tab_hover = {
-			bg_color = "#16161D",
-			fg_color = kanagawa.ansi[8],
-		},
+		active_tab = { bg_color = kanagawa.ansi[1], fg_color = kanagawa.brights[5] },
+		inactive_tab = { bg_color = kanagawa.background, fg_color = kanagawa.brights[8] },
 	},
 }
 
-config.inactive_pane_hsb = {
-	brightness = 0.7,
-	saturation = 0.8,
-}
-
-config.window_background_opacity = 1.0
-config.text_background_opacity = 1.0
-config.macos_window_background_blur = 25
-
--- Keyboard shortcuts
-
-local direction_keys = {
-	Left = "h",
-	Down = "j",
-	Up = "k",
-	Right = "l",
-	-- Reverse lookup
-	h = "Left",
-	j = "Down",
-	k = "Up",
-	l = "Right",
-}
+-- --- KEYBOARD SHORTCUTS ---
+local direction_keys = { h = "Left", j = "Down", k = "Up", l = "Right" }
 
 local function split_nav(resize_or_move, key)
 	return {
@@ -130,10 +57,10 @@ local function split_nav(resize_or_move, key)
 		mods = resize_or_move == "resize" and "META" or "CTRL",
 		action = w.action_callback(function(win, pane)
 			if is_vim(pane) then
-				-- Pass the keys through to nvim
-				win:perform_action({
-					SendKey = { key = key, mods = resize_or_move == "resize" and "META" or "CTRL" },
-				}, pane)
+				win:perform_action(
+					{ SendKey = { key = key, mods = resize_or_move == "resize" and "META" or "CTRL" } },
+					pane
+				)
 			else
 				if resize_or_move == "resize" then
 					win:perform_action({ AdjustPaneSize = { direction_keys[key], 3 } }, pane)
@@ -145,85 +72,42 @@ local function split_nav(resize_or_move, key)
 	}
 end
 
-config.disable_default_key_bindings = true
 config.keys = {
-	{ key = "q", mods = "CTRL", action = act.QuitApplication },
+	-- Essentials
 	{ key = "r", mods = "CTRL|SHIFT", action = act.ReloadConfiguration },
-	{ key = "l", mods = "CTRL", action = act.ShowDebugOverlay },
+	{ key = "l", mods = "CTRL|SHIFT", action = act.ShowDebugOverlay }, -- Changed to SHIFT to avoid clear-screen conflict
 
-	{ key = "c", mods = "CTRL|SHIFT", action = act.CopyTo("Clipboard") },
-	{ key = "v", mods = "CTRL|SHIFT", action = act.PasteFrom("Clipboard") },
-	{ key = "n", mods = "CTRL|SHIFT", action = act.SpawnWindow },
-	{ key = "-", mods = "CTRL", action = act.DecreaseFontSize },
-	{ key = "=", mods = "CTRL", action = act.IncreaseFontSize },
-	{ key = "0", mods = "CTRL", action = act.ResetFontSize },
-
-	{ key = "w", mods = "CTRL|SHIFT", action = act.CloseCurrentTab({ confirm = true }) },
-	{ key = "q", mods = "CTRL|SHIFT", action = act.CloseCurrentPane({ confirm = true }) },
-	{ key = "1", mods = "CTRL", action = act.ActivateTab(0) },
-	{ key = "2", mods = "CTRL", action = act.ActivateTab(1) },
-	{ key = "3", mods = "CTRL", action = act.ActivateTab(2) },
-	{ key = "4", mods = "CTRL", action = act.ActivateTab(3) },
-	{ key = "5", mods = "CTRL", action = act.ActivateTab(4) },
-	{ key = "6", mods = "CTRL", action = act.ActivateTab(5) },
-	{ key = "7", mods = "CTRL", action = act.ActivateTab(6) },
-	{ key = "8", mods = "CTRL", action = act.ActivateTab(7) },
-	{ key = "9", mods = "CTRL", action = act.ActivateTab(-1) },
-
-	{ key = "a", mods = "CTRL", action = act.SplitHorizontal },
-	{ key = "s", mods = "CTRL", action = act.SplitVertical },
+	-- Split Management
+	{ key = "a", mods = "CTRL", action = act.SplitHorizontal({ domain = "CurrentPaneDomain" }) },
+	{ key = "s", mods = "CTRL|SHIFT", action = act.SplitVertical({ domain = "CurrentPaneDomain" }) },
 	{ key = "f", mods = "CTRL", action = act.TogglePaneZoomState },
-	{ key = "r", mods = "CTRL", action = act.SendKey({ key = "r", mods = "CTRL" }) },
-	{ key = "[", mods = "CTRL", action = act.ActivateTabRelative(-1) },
-	{ key = "]", mods = "CTRL", action = act.ActivateTabRelative(1) },
-	{ key = "Tab", mods = "CTRL|SHIFT", action = act.ActivateTabRelative(-1) },
-	{ key = "Tab", mods = "CTRL", action = act.ActivateTabRelative(1) },
+	{ key = "q", mods = "CTRL|SHIFT", action = act.CloseCurrentPane({ confirm = true }) },
 
-	{ key = "u", mods = "CTRL", action = act.ScrollByPage(-0.5) },
-	{ key = "d", mods = "CTRL", action = act.ScrollByPage(0.5) },
-
-	{ key = "h", mods = "CTRL|SHIFT", action = act.AdjustPaneSize({ "Left", 1 }) },
-	{ key = "l", mods = "CTRL|SHIFT", action = act.AdjustPaneSize({ "Right", 1 }) },
-	{ key = "k", mods = "CTRL|SHIFT", action = act.AdjustPaneSize({ "Up", 1 }) },
-	{ key = "j", mods = "CTRL|SHIFT", action = act.AdjustPaneSize({ "Down", 1 }) },
-
-	{ key = "p", mods = "CTRL", action = act.ScrollToPrompt(-1) },
-	{ key = "n", mods = "CTRL", action = act.ScrollToPrompt(1) },
-
+	-- Search & Copy (Fixed Conflicts)
+	{
+		key = "f",
+		mods = "CTRL|SHIFT",
+		action = act.Search({ CaseInSensitiveString = "" }),
+	},
 	{ key = "x", mods = "CTRL", action = act.ActivateCopyMode },
 
+	-- Lazygit (Changed from ZSH to Bash)
 	{
 		key = "g",
 		mods = "CTRL",
 		action = w.action_callback(function(win, pane)
-			win:perform_action(
-				act.SplitHorizontal({
-					args = { "zsh", "-ic", "lazygit" },
-				}),
-				pane
-			)
+			win:perform_action(act.SplitHorizontal({ args = { "bash", "-li", "-c", "lazygit" } }), pane)
 			win:perform_action(act.SetPaneZoomState(true), pane)
 		end),
 	},
 
+	-- Quick URL Select
 	{
-		key = "t",
-		mods = "CTRL",
-		action = w.action.SpawnCommandInNewTab({
-			args = { "zsh", "-i" },
-			set_environment_variables = {
-				OPEN_PROJECT = "1",
-			},
-		}),
-	},
-
-	-- Open URLs with cmd+o
-	{
-		key = "o",
+		key = "i",
 		mods = "CTRL|SHIFT",
 		action = act.QuickSelectArgs({
 			label = "open url",
-			patterns = { "https?://[^\\s)]+" },
+			patterns = { "https?://\\S+" },
 			action = w.action_callback(function(window, pane)
 				local url = window:get_selection_text_for_pane(pane)
 				w.open_with(url)
@@ -231,29 +115,40 @@ config.keys = {
 		}),
 	},
 
+	-- Smart Splits (Vim Integration)
 	split_nav("move", "h"),
 	split_nav("move", "j"),
 	split_nav("move", "k"),
 	split_nav("move", "l"),
-	-- resize panes
 	split_nav("resize", "h"),
 	split_nav("resize", "j"),
 	split_nav("resize", "k"),
 	split_nav("resize", "l"),
 }
 
-config.mouse_bindings = {
-	{
-		event = { Up = { streak = 1, button = "Left" } },
-		mods = "SHIFT",
-		action = w.action.OpenLinkAtMouseCursor,
-	},
-}
-
---- Behaviour
-
+-- --- BEHAVIOR ---
 config.scrollback_lines = 10000
-
 config.adjust_window_size_when_changing_font_size = false
+
+w.on("update-right-status", function(window, pane)
+	local name = window:active_key_table()
+	if name then
+		name = "TABLE: " .. name
+	end
+
+	-- Check if we are in a special mode
+	local status = ""
+	if window:leader_is_active() then
+		status = "LEADER"
+	end
+
+	-- Display the current mode
+	window:set_right_status(w.format({
+		{ Foreground = { Color = "#98BB6C" } },
+		{ Text = status .. (name or "") .. "  " },
+		{ Foreground = { Color = "#dcd7ba" } },
+		{ Text = w.strftime("%H:%M  ") },
+	}))
+end)
 
 return config
