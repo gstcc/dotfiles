@@ -22,9 +22,6 @@ config.front_end = "WebGpu"
 local kanagawa = {
 	foreground = "#dcd7ba",
 	background = "#1b1b23",
-	cursor_bg = "#9CABCA",
-	cursor_fg = "#252535",
-	cursor_border = "#c8c093",
 	selection_fg = "#c8c093",
 	selection_bg = "#2d4f67",
 	ansi = { "#090618", "#c34043", "#98BB6C", "#c0a36e", "#7e9cd8", "#957fb8", "#6a9589", "#c8c093" },
@@ -41,6 +38,8 @@ config.use_fancy_tab_bar = false
 config.window_decorations = "RESIZE"
 
 config.colors = {
+	cursor_fg = "#c8c093",
+	cursor_border = "#c8c093",
 	tab_bar = {
 		background = kanagawa.background,
 		active_tab = { bg_color = kanagawa.ansi[1], fg_color = kanagawa.brights[5] },
