@@ -100,6 +100,17 @@ config.keys = {
 		end),
 	},
 
+	-- btop
+	{
+
+		key = "p",
+		mods = "CTRL",
+		action = w.action_callback(function(win, pane)
+			win:perform_action(act.SplitHorizontal({ args = { "btop", "-t" } }), pane)
+			win:perform_action(act.SetPaneZoomState(true), pane)
+		end),
+	},
+
 	-- Quick URL Select
 	{
 		key = "i",
