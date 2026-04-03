@@ -90,12 +90,20 @@ config.keys = {
 	},
 	{ key = "x", mods = "CTRL", action = act.ActivateCopyMode },
 
-	-- Lazygit (Changed from ZSH to Bash)
 	{
 		key = "g",
 		mods = "CTRL",
 		action = w.action_callback(function(win, pane)
-			win:perform_action(act.SplitHorizontal({ args = { "bash", "-li", "-c", "lazygit" } }), pane)
+			local cwd_url = pane:get_current_working_dir()
+			local cwd = cwd_url and cwd_url.file_path or w.home_dir
+
+			win:perform_action(
+				act.SplitHorizontal({
+					domain = "CurrentPaneDomain",
+					args = { "lazygit", "-p", cwd },
+				}),
+				pane
+			)
 			win:perform_action(act.SetPaneZoomState(true), pane)
 		end),
 	},
